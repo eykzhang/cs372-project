@@ -1,0 +1,8 @@
+dqn --run dqn_sweep_base --opponents random,max_power,heuristic --steps 500000
+dqn --run dqn_sweep_lr3e-4 --opponents random,max_power,heuristic --steps 500000 --config lr=3e-4
+dqn --run dqn_sweep_gamma995 --opponents random,max_power,heuristic --steps 500000 --config gamma=0.995
+dqn --run dqn_sweep_eps150k --opponents random,max_power,heuristic --steps 500000 --config epsilon_decay_steps=150000
+ppo --run ppo_sweep_base --opponents random,max_power,heuristic --steps 500000
+ppo --run ppo_sweep_lr1e-4 --opponents random,max_power,heuristic --steps 500000 --config lr=1e-4
+ppo --run ppo_sweep_gamma995 --opponents random,max_power,heuristic --steps 500000 --config gamma=0.995
+ppo --run ppo_sweep_ent03 --opponents random,max_power,heuristic --steps 500000 --config entropy_coef=0.03

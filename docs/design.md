@@ -18,7 +18,7 @@ The two algorithms have different strengths here. DQN reuses every past transiti
 
 ## Why Gen 2 OU
 
-- The game is small enough to encode by hand. There are no abilities, natures or Terastallization, and the state fits in a few hundred features, which keeps training on a laptop.
+- The game is small enough to encode by hand. There are no abilities, natures or Terastallization, and the state fits in under a thousand features, which keeps training on a laptop.
 - It has real hidden information: unrevealed team members, unused moves, and held items that stay hidden until they activate (Leftovers recovery, a berry being eaten).
 - Gen 2 removed Gen 1's most irregular mechanics. Hyper Beam always requires a recharge turn, critical-hit rate no longer depends on Speed, frozen Pokemon can thaw, and partial-trapping moves no longer stop the target from attacking.
 - It is an active research setting. Metamon (Grigsby et al., RLC 2025) trains offline RL agents on Gen 1-4 OU and reports human-level play on the Showdown ladder, and the NeurIPS 2025 PokeAgent Challenge ran a competitive Showdown battling track. Our agents are far smaller than Metamon's transformers; the question here is how two online RL algorithms compare on the same problem.
@@ -32,12 +32,13 @@ Gen 2 adds mechanics the encoding has to cover: held items, weather from Rain Da
 
 A Gymnasium environment built on poke-env's `SinglesEnv`, playing against a local Pokemon Showdown server in the `gen2ou` format. One episode is one battle.
 
-- **Action space:** 9 discrete actions, 4 moves of the active Pokemon and up to 5 switches.
+- **Action space:** 10 discrete actions, poke-env's Gen 2 layout: 6 switch slots (one per team member, in team order) and 4 moves of the active Pokemon. The active Pokemon's own switch slot is always masked.
 - **Action masking:** a legality mask from poke-env each turn (fainted or active Pokemon cannot be switched to, a trapped Pokemon cannot switch, forced switches after a faint allow only switches).
+- **Turn cap:** battles are cut off at 200 turns, because Rest and Leftovers stalling between weak policies can otherwise run to Showdown's 1000-turn tie. A cut-off battle counts as a non-win, and training bootstraps through the cutoff since it is not a real end of the game.
 
 ### Teams
 
-A fixed pool of Gen 2 OU teams, split into training, validation and held-out test teams. Validation teams pick checkpoints and hyperparameters; test teams are touched only for final numbers. Source to be confirmed during setup: Metamon's published team sets, with Showdown's own team generator as a fallback.
+Validation and test teams are expert-built Gen 2 OU teams from Metamon's `competitive` set: 18 teams, split 11 / 4 / 3 into training, validation and held-out test teams. The training split also holds 2,475 teams from Metamon's `hl_05_26` set, predicted from high-rated ladder replays, with any team that has the same six Pokemon as a validation or test team removed. These were added in iteration 2 after DQN overfit the 11 competitive training teams (`docs/iteration-log.md`). Validation teams pick checkpoints and hyperparameters; test teams are touched only for final numbers. Each battle, both players draw a team at random from the same split. Details in `data/README.md`.
 
 ### State encoding
 
@@ -47,11 +48,13 @@ Hand-designed features. In the realistic observation, opponent information appea
 - For each of the active Pokemon's 4 moves: base power, type, accuracy, remaining PP fraction, and derived features computed against the opponent's active Pokemon (type effectiveness multiplier, same-type attack bonus).
 - Battle-level features: turn number, weather and turns remaining, Spikes on each side, Pokemon remaining on each side.
 
-The oracle observation uses the same layout with every opponent field filled in from the opponent's true team, so the two variants differ only in what is hidden.
+Each Pokemon slot also carries derived features: the types and roles (recovery, setup, Explosion, sleep, Spikes, phazing, Rapid Spin, Sleep Talk) of its known moves, its best known attack into the opposing active Pokemon, and the worst type matchup it faces from that Pokemon. An unrevealed opponent slot is encoded as full HP with an unknown item, which is known for certain because it has never been in battle. The vector has 956 features.
+
+The oracle observation uses the same layout with every opponent field filled in from the opponent's true team, so the two variants differ only in what is hidden. Opponent slots are ordered by reveal in both modes; the oracle fills the remaining slots with the unrevealed Pokemon. The true team comes from the opponent's own battle object, which poke-env keeps in the same process.
 
 ### Reward
 
-A terminal reward of +1 for a win and -1 for a loss, plus small shaping terms for HP dealt and taken and for Pokemon knocked out. The shaping weights are capped so their total over a battle stays well below the terminal reward. If they don't, the agent can learn to farm damage without winning, which happened in earlier work of mine with uncapped weights.
+A terminal reward of +1 for a win and -1 for a loss, plus shaping for HP and knockouts. The shaping is the per-turn change in a potential: 0.1 times the HP difference between the teams plus 0.1 times the knockout difference, each scaled to [-1, 1]. Because the per-turn terms telescope, total shaping over a battle equals the final potential, which is bounded by 0.2 and so can never outweigh the terminal reward. Without a cap the agent can learn to farm damage without winning, which happened in earlier work of mine with uncapped weights.
 
 ### Agents
 
@@ -67,6 +70,7 @@ A terminal reward of +1 for a win and -1 for a loss, plus small shaping terms fo
 - Generalized advantage estimation.
 - Clipped surrogate objective with an entropy bonus, updated over several epochs of minibatches per rollout.
 - Masked categorical policy: illegal actions get negative-infinity logits before the softmax.
+- Evaluated by sampling from its policy, since the stochastic policy is what it learned and what the randomization question is about. DQN is evaluated greedily.
 
 ### Memory (stretch)
 
