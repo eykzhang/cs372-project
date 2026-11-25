@@ -1,0 +1,31 @@
+{
+  "agent": {
+    "total_steps": 500000,
+    "lr": 0.0001,
+    "gamma": 0.99,
+    "batch_size": 64,
+    "buffer_size": 100000,
+    "learning_starts": 5000,
+    "train_every": 4,
+    "target_update_every": 2000,
+    "epsilon_start": 1.0,
+    "epsilon_end": 0.05,
+    "epsilon_decay_steps": 60000,
+    "hidden_sizes": [
+      512,
+      256
+    ],
+    "max_grad_norm": 10.0,
+    "double": true,
+    "dueling": false
+  },
+  "algorithm": "dqn",
+  "obs_mode": "realistic",
+  "opponents": [
+    "random",
+    "max_power",
+    "heuristic"
+  ],
+  "advance_at": 0.6,
+  "seed": 0
+}

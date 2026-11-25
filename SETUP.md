@@ -53,7 +53,7 @@ To use a server on another port, set `SHOWDOWN_PORT` (for example `SHOWDOWN_PORT
 
 ## 5. Running sweeps on a SLURM cluster (optional)
 
-`slurm/train_array.sbatch` runs one line of a sweep file per array task. Each task copies the Showdown server to node-local disk, starts it on its own port bound to localhost, trains, and shuts it down. `slurm/sweep.txt` lists the hyperparameter sweep.
+`slurm/train_array.sbatch` runs one line of a sweep file per array task. Each task copies the Showdown server to node-local disk, starts it on its own port bound to localhost, trains, and shuts it down. `slurm/sweep.txt` lists the hyperparameter sweep (iteration 3 in `docs/iteration-log.md`), and `slurm/info_gap.txt` the information-gap runs: both agents, realistic and oracle observations, three seeds each.
 
 One-time setup on the cluster. These steps assume Node.js is installed but npm is not, as on the cluster this was developed for, so the built server is copied from a machine that already ran step 2:
 

@@ -70,3 +70,28 @@ The same 300-battle evaluation per split as iteration 1. "Train teams" now means
 DQN's train/val gap is gone, and its validation win rates roughly doubled against max_power and rose from 1% to 11% against the heuristic. Both changes are outside the confidence intervals. The agent is no longer memorizing teams, but it is also not learning much: its training win rate against max_power reached only 0.23 in the last fifth of episodes (v2: 0.69 on 11 teams), and it never reached the 0.6 gate. PPO is unchanged within noise against the heuristic. Its max_power numbers are lower, but its best checkpoint is picked on heuristic win rate, so they are not tuned for max_power.
 
 **Next.** DQN's limit has moved from overfitting to slow learning on a varied pool, so regularization is no longer the indicated fix. The planned hyperparameter search (learning rate, discount, exploration schedule) and a longer step budget are the next candidates.
+
+## Iteration 3: hyperparameter search and a longer step budget (2026-11-25)
+
+**Tried.** Iteration 2 left DQN learning slowly on the varied team pool, so both agents were trained for 500K steps (up from 200K) with one change at a time from the default config: learning rate, discount and exploration schedule for DQN, and learning rate, discount and entropy coefficient for PPO. Same curriculum and teams as iteration 2, one seed per config, run as a SLURM array (`slurm/sweep.txt`).
+
+**Measured.** In-training evaluations are not comparable across these runs: each one met its opponents at different steps, and three DQN runs never reached the heuristic stage, so they have no `best.pt`. Every run's `final.pt` was therefore evaluated under one protocol, 300 battles per opponent on validation teams (`src/evaluate_runs.py`, `data/results/sweep_val.csv`).
+
+| Run | Change from default | vs max_power | vs heuristic | Mean turns vs heuristic |
+|---|---|---|---|---|
+| `dqn_sweep_base` | none | 0.173 [0.13, 0.22] | 0.053 [0.03, 0.08] | 37.5 |
+| `dqn_sweep_lr3e-4` | lr 1e-4 to 3e-4 | 0.283 [0.24, 0.34] | 0.043 [0.03, 0.07] | 24.4 |
+| `dqn_sweep_gamma995` | gamma 0.99 to 0.995 | 0.377 [0.32, 0.43] | 0.070 [0.05, 0.10] | 31.3 |
+| `dqn_sweep_eps150k` | epsilon decay 60K to 150K steps | 0.213 [0.17, 0.26] | 0.040 [0.02, 0.07] | 57.0 |
+| `ppo_sweep_base` | none | 0.430 [0.38, 0.49] | 0.083 [0.06, 0.12] | 23.3 |
+| `ppo_sweep_lr1e-4` | lr 3e-4 to 1e-4 | 0.573 [0.52, 0.63] | 0.150 [0.11, 0.19] | 16.3 |
+| `ppo_sweep_gamma995` | gamma 0.99 to 0.995 | 0.687 [0.63, 0.74] | 0.337 [0.29, 0.39] | 16.8 |
+| `ppo_sweep_ent03` | entropy coefficient 0.01 to 0.03 | 0.207 [0.16, 0.26] | 0.037 [0.02, 0.06] | 25.3 |
+
+For reference, max_power beats the heuristic 0.178 (experiment 1) and the best earlier agent, PPO v3, reached 0.157 [0.12, 0.20].
+
+**Reading.** PPO with gamma 0.995 is the first agent to beat the heuristic more often than max_power does, and its interval clears both PPO base and PPO v3. A lower learning rate also helped PPO. A larger entropy bonus hurt: the run took 380K steps to pass the max_power gate and finished weakest. No DQN config separates from the others against the heuristic. Gamma 0.995 is the best DQN config against max_power, and the only DQN change whose interval clears the default.
+
+To see what DQN is doing, 40 battles per opponent were played with `dqn_sweep_base` and `ppo_sweep_gamma995` and their protocol logs tallied. DQN switched on 63% of its actions against max_power and 66% against the heuristic (PPO: 38% and 40%, both counts including forced switches after a faint), with 752 and 492 immediate switch-backs (A to B to A) over the 40 battles, against 40 and 32 for PPO. In one battle two DQN Pokemon swapped places for over ten turns without attacking while the opponent's Zapdos chipped both, and in another Golem used Earthquake into Zapdos ten times. The move effectiveness feature for that matchup is the immune value (-1.5), so the information was in the observation. Against max_power the stalling ran the opponent out of PP: it used Struggle 278 times over the 40 battles. Neither agent used Protect or Detect.
+
+**Selected.** Gamma 0.995 for both agents in the experiments that follow. It is the best config for PPO by a wide margin and the best DQN config against max_power, and keeping the discount the same for both algorithms keeps the comparison controlled. All results are single-seed.

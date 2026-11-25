@@ -1,0 +1,12 @@
+dqn --run dqn_realistic_s0 --obs realistic --seed 0 --opponents random,max_power,heuristic --steps 500000 --config gamma=0.995
+dqn --run dqn_realistic_s1 --obs realistic --seed 1 --opponents random,max_power,heuristic --steps 500000 --config gamma=0.995
+dqn --run dqn_realistic_s2 --obs realistic --seed 2 --opponents random,max_power,heuristic --steps 500000 --config gamma=0.995
+dqn --run dqn_oracle_s0 --obs oracle --seed 0 --opponents random,max_power,heuristic --steps 500000 --config gamma=0.995
+dqn --run dqn_oracle_s1 --obs oracle --seed 1 --opponents random,max_power,heuristic --steps 500000 --config gamma=0.995
+dqn --run dqn_oracle_s2 --obs oracle --seed 2 --opponents random,max_power,heuristic --steps 500000 --config gamma=0.995
+ppo --run ppo_realistic_s0 --obs realistic --seed 0 --opponents random,max_power,heuristic --steps 500000 --config gamma=0.995
+ppo --run ppo_realistic_s1 --obs realistic --seed 1 --opponents random,max_power,heuristic --steps 500000 --config gamma=0.995
+ppo --run ppo_realistic_s2 --obs realistic --seed 2 --opponents random,max_power,heuristic --steps 500000 --config gamma=0.995
+ppo --run ppo_oracle_s0 --obs oracle --seed 0 --opponents random,max_power,heuristic --steps 500000 --config gamma=0.995
+ppo --run ppo_oracle_s1 --obs oracle --seed 1 --opponents random,max_power,heuristic --steps 500000 --config gamma=0.995
+ppo --run ppo_oracle_s2 --obs oracle --seed 2 --opponents random,max_power,heuristic --steps 500000 --config gamma=0.995
