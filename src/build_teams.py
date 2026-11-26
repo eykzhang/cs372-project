@@ -72,6 +72,7 @@ def filter_ladder(teams: dict[str, str], held_out: list[str]) -> dict[str, str]:
 
 
 def main():
+    """Download both team sets, redo the seeded split and ladder filters, and write the team files."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=Path, default=TEAMS_DIR)
     args = parser.parse_args()

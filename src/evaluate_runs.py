@@ -11,8 +11,7 @@ import json
 
 from src.env import OPPONENTS, make_env
 from src.evaluate import evaluate_policy, load_agent
-from src.run_baselines import RESULTS_DIR
-from src.run_log import MODELS_DIR
+from src.run_log import MODELS_DIR, RESULTS_DIR
 
 
 def evaluate_run(run: str, checkpoint: str, opponent: str, split: str, n_battles: int, seed: int) -> dict:
@@ -26,6 +25,7 @@ def evaluate_run(run: str, checkpoint: str, opponent: str, split: str, n_battles
 
 
 def main():
+    """Evaluate each listed run against each opponent and write one CSV to data/results/."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--runs", nargs="+", required=True)
     parser.add_argument("--checkpoint", default="final", choices=["final", "best"])

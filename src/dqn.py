@@ -76,6 +76,7 @@ class ReplayBuffer:
         self.size = min(self.size + 1, self.capacity)
 
     def sample(self, batch_size: int, rng: np.random.Generator) -> dict[str, torch.Tensor]:
+        """Uniform random batch of stored transitions, with replacement, as tensors."""
         idx = rng.integers(0, self.size, size=batch_size)
         return {
             "obs": torch.from_numpy(self.obs[idx]),
@@ -112,6 +113,7 @@ class DQNAgent:
         return self.config.epsilon_start + frac * (self.config.epsilon_end - self.config.epsilon_start)
 
     def act(self, obs: dict, epsilon: float = 0.0) -> int:
+        """Random legal action with probability epsilon, otherwise the legal action with the highest Q-value."""
         legal = np.flatnonzero(obs["action_mask"])
         if self.rng.random() < epsilon:
             return int(self.rng.choice(legal))

@@ -95,6 +95,7 @@ def is_damaging(move: Move) -> bool:
 
 
 def encode_item(item: str | None) -> list[float]:
+    """One-hot held item, with extra slots for an unlisted item, no item, and an unrevealed item."""
     if item == "unknown_item":
         return [0.0] * (len(ITEMS) + 2) + [1.0]
     if not item:

@@ -60,6 +60,7 @@ class Gen2Env(SinglesEnv):
         }
 
     def embed_battle(self, battle: AbstractBattle) -> np.ndarray:
+        """Feature vector for one side; in oracle mode the opponent's true team fills the opponent slots."""
         truth = None
         if self.observation_mode == "oracle":
             # the opponent's own battle object holds its full team
@@ -86,7 +87,7 @@ class Gen2Env(SinglesEnv):
         return SinglesEnv.calc_term_trunc(battle)
 
     def calc_reward(self, battle: AbstractBattle) -> float:
-        # discounted change in potential, so per-turn shaping telescopes under the agent's discount
+        """Win or loss reward plus the discounted change in shaping potential, which telescopes over a battle."""
         potential = self.shaping_potential(battle)
         reward = self.reward.gamma * potential - self._reward_buffer.get(battle, 0.0)
         self._reward_buffer[battle] = potential
