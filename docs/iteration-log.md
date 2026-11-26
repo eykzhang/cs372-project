@@ -96,7 +96,7 @@ To see what DQN is doing, 40 battles per opponent were played with `dqn_sweep_ba
 
 **Selected.** Gamma 0.995 for both agents in the experiments that follow. It is the best config for PPO by a wide margin and the best DQN config against max_power, and keeping the discount the same for both algorithms keeps the comparison controlled. All results are single-seed.
 
-## Iteration 4: mixed-opponent curriculum and a longer step budget (in progress)
+## Iteration 4: mixed-opponent curriculum and a longer step budget (2026-11-26)
 
 **Why.** The information-gap runs (experiment 3: both agents, realistic and oracle observations, three seeds each, gamma 0.995, 500K steps) were evaluated with 500 battles per opponent on validation teams (`data/results/info_gap_val.csv`). For DQN the result depends on where each run ended in the curriculum more than on what it observed:
 
@@ -133,3 +133,38 @@ A second reading: in a lost battle the shaping can tell a close loss from a rout
 All arms also use the exact potential-based form of the shaping, gamma times the new potential minus the old one, where earlier runs used the plain difference. At the old weights the two differ by at most 0.001 per turn.
 
 Episode logs now record each battle's opponent, so training win rates can be split by opponent in the mixed runs. The better curriculum and shaping are then used to rerun the information-gap pairs, with both agents trained the same way.
+
+**Measured.** Each run's `final.pt` was evaluated with 500 battles per opponent on validation teams (`src/evaluate_runs.py`, `data/results/iteration4_val.csv`). The heuristic stage column comes from `evals.csv`. The arm means average the two seeds.
+
+| Run | Heuristic stage from | vs max_power | vs heuristic |
+|---|---|---|---|
+| `ppo_it4_base_s0` | 180K | 0.528 [0.48, 0.57] | 0.136 [0.11, 0.17] |
+| `ppo_it4_base_s1` | 190K | 0.722 [0.68, 0.76] | 0.284 [0.25, 0.33] |
+| `ppo_it4_mixed_s0` | 220K | 0.712 [0.67, 0.75] | 0.220 [0.19, 0.26] |
+| `ppo_it4_mixed_s1` | 190K | 0.676 [0.63, 0.72] | 0.186 [0.15, 0.22] |
+| `ppo_it4_shaped_s0` | 160K | 0.708 [0.67, 0.75] | 0.254 [0.22, 0.29] |
+| `ppo_it4_shaped_s1` | 130K | 0.702 [0.66, 0.74] | 0.238 [0.20, 0.28] |
+| `dqn_it4_base_s0` | 140K | 0.092 [0.07, 0.12] | 0.052 [0.04, 0.08] |
+| `dqn_it4_base_s1` | never | 0.244 [0.21, 0.28] | 0.098 [0.08, 0.13] |
+| `dqn_it4_mixed_s0` | never | 0.272 [0.24, 0.31] | 0.046 [0.03, 0.07] |
+| `dqn_it4_mixed_s1` | never | 0.204 [0.17, 0.24] | 0.038 [0.02, 0.06] |
+| `dqn_it4_shaped_s0` | 180K | 0.184 [0.15, 0.22] | 0.008 [0.00, 0.02] |
+| `dqn_it4_shaped_s1` | never | 0.424 [0.38, 0.47] | 0.140 [0.11, 0.17] |
+
+| Arm | PPO vs max_power | PPO vs heuristic | DQN vs max_power | DQN vs heuristic |
+|---|---|---|---|---|
+| `it4_base` | 0.625 | 0.210 | 0.168 | 0.075 |
+| `it4_mixed` | 0.694 | 0.203 | 0.238 | 0.042 |
+| `it4_shaped` | 0.705 | 0.246 | 0.304 | 0.074 |
+
+For the step budget, the three 500K PPO realistic runs from experiment 3 are the comparison: the same curriculum, shaping weights and gamma. They averaged 0.707 against max_power and 0.271 against the heuristic (`data/results/info_gap_val.csv`).
+
+Training win rates in the last 200K steps, split by the `opponent` column of `episodes.csv`: the mixed PPO runs won 0.90 to 0.91 against random, 0.55 to 0.58 against max_power and 0.19 to 0.20 against the heuristic. The mixed DQN runs, which never left the max_power stage, won 0.60 to 0.61 against random and 0.15 to 0.16 against max_power.
+
+**Result.** Doubling the step budget did not help PPO. `it4_base` at 1M steps averaged 0.210 against the heuristic, below the 0.271 of the 500K runs. Most of that gap is `ppo_it4_base_s0`, whose in-training heuristic evaluation peaked at 0.28 and ended at 0.12.
+
+Stronger shaping gave PPO the highest mean on both opponents and the smallest spread between seeds (0.238 and 0.254 against the heuristic, against 0.136 and 0.284 for base). Both shaped PPO runs also reached the heuristic stage earliest, at 130K and 160K steps. With two seeds the intervals still overlap with base, so this is a lead and not a separation. The mixed curriculum kept PPO strong against the earlier opponents in training, but on validation it was no better than base against the heuristic.
+
+No arm fixed the DQN collapse. The two DQN runs that reached the heuristic ended worse than the four that did not: `dqn_it4_shaped_s0` peaked at 0.26 in training and finished at 0.008, and `dqn_it4_base_s0` fell to 0.092 against max_power. Neither mixed DQN run passed the max_power gate in 1M steps, so the mixed curriculum never got to test the heuristic stage it was meant for. The best DQN result, `dqn_it4_shaped_s1` (0.424 and 0.140), never reached the heuristic either. That is the same split by curriculum stage as in the information-gap runs.
+
+**Selected.** Stronger shaping (0.5 + 0.5), the standard curriculum and the 500K step budget, with gamma 0.995 for both agents. The information-gap pairs are rerun on this setup: both agents, realistic and oracle observations, three seeds each (`slurm/info_gap_shaped.txt`). Evaluation stays greedy for DQN (epsilon 0), the same protocol as every earlier DQN result. If DQN collapses again at the heuristic stage, its information gap is reported as not measurable, and the collapse itself is reported as a finding.

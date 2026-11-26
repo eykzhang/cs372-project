@@ -1,0 +1,35 @@
+{
+  "agent": {
+    "total_steps": 1000000,
+    "rollout_steps": 2048,
+    "epochs": 4,
+    "minibatch_size": 256,
+    "lr": 0.0003,
+    "gamma": 0.995,
+    "gae_lambda": 0.95,
+    "clip_range": 0.2,
+    "entropy_coef": 0.01,
+    "value_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "hidden_sizes": [
+      512,
+      256
+    ]
+  },
+  "algorithm": "ppo",
+  "obs_mode": "realistic",
+  "opponents": [
+    "random",
+    "max_power",
+    "heuristic"
+  ],
+  "advance_at": 0.6,
+  "mixed": false,
+  "reward": {
+    "win": 1.0,
+    "hp_weight": 0.1,
+    "faint_weight": 0.1,
+    "gamma": 0.995
+  },
+  "seed": 0
+}
