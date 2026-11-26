@@ -95,3 +95,41 @@ For reference, max_power beats the heuristic 0.178 (experiment 1) and the best e
 To see what DQN is doing, 40 battles per opponent were played with `dqn_sweep_base` and `ppo_sweep_gamma995` and their protocol logs tallied. DQN switched on 63% of its actions against max_power and 66% against the heuristic (PPO: 38% and 40%, both counts including forced switches after a faint), with 752 and 492 immediate switch-backs (A to B to A) over the 40 battles, against 40 and 32 for PPO. In one battle two DQN Pokemon swapped places for over ten turns without attacking while the opponent's Zapdos chipped both, and in another Golem used Earthquake into Zapdos ten times. The move effectiveness feature for that matchup is the immune value (-1.5), so the information was in the observation. Against max_power the stalling ran the opponent out of PP: it used Struggle 278 times over the 40 battles. Neither agent used Protect or Detect.
 
 **Selected.** Gamma 0.995 for both agents in the experiments that follow. It is the best config for PPO by a wide margin and the best DQN config against max_power, and keeping the discount the same for both algorithms keeps the comparison controlled. All results are single-seed.
+
+## Iteration 4: mixed-opponent curriculum and a longer step budget (in progress)
+
+**Why.** The information-gap runs (experiment 3: both agents, realistic and oracle observations, three seeds each, gamma 0.995, 500K steps) were evaluated with 500 battles per opponent on validation teams (`data/results/info_gap_val.csv`). For DQN the result depends on where each run ended in the curriculum more than on what it observed:
+
+| DQN runs | Runs | vs max_power | vs heuristic |
+|---|---|---|---|
+| Stayed at the max_power stage | 3 (`dqn_realistic_s0`, `dqn_oracle_s1`, `dqn_oracle_s2`) | 0.27 to 0.40 | 0.05 to 0.12 |
+| Advanced to the heuristic stage | 3 (`dqn_realistic_s1`, `dqn_realistic_s2`, `dqn_oracle_s0`) | 0.03 to 0.14 | 0.01 to 0.03 |
+
+`dqn_sweep_base` from iteration 3 also advanced and also collapsed (0.173 vs max_power). Every DQN run that reached the heuristic declined from then on. Validation win rate against the heuristic, averaged over each 100K-step window:
+
+| Run | Heuristic stage from | 200K | 300K | 400K | 500K |
+|---|---|---|---|---|---|
+| `dqn_realistic_s1` | 140K | 0.08 | 0.04 | 0.02 | 0.01 |
+| `dqn_oracle_s0` | 80K | 0.07 | 0.03 | 0.02 | 0.02 |
+| `ppo_realistic_s1` | 180K | 0.22 | 0.24 | 0.24 | 0.26 |
+| `ppo_realistic_s2` | 90K | 0.12 | 0.07 | 0.17 | 0.21 |
+
+DQN's training win rate in that stage fell to 1-2%, so almost every episode ends at -1, and the collapsed runs also lost what they had learned against max_power (0.03 to 0.06, below `RandomPlayer`'s 0.116). PPO in the same stage was still improving slowly at 500K steps. While DQN wins under 5%, its information gap cannot be measured.
+
+A second reading: in a lost battle the shaping can tell a close loss from a rout by at most 0.2 (knocking out three opponents instead of none is worth 0.05), so every loss returns between about -1.2 and -0.8. A value-based agent has to rank actions by small differences inside that band.
+
+**Plan.** Three arms, each one change from a shared baseline, run with both agents, two seeds each, realistic observations and gamma 0.995 (`slurm/iteration4.txt`, 12 runs):
+
+| Arm | Curriculum | Shaping weights (HP + knockouts) | Steps |
+|---|---|---|---|
+| `it4_base` | as before | 0.1 + 0.1 | 1M |
+| `it4_mixed` | mixed | 0.1 + 0.1 | 1M |
+| `it4_shaped` | as before | 0.5 + 0.5 | 1M |
+
+- Mixed curriculum (`--mixed`): after an advance, half of the training battles are against the current opponent and the rest are split evenly among earlier ones, so winnable battles stay in the training data. The advance gate still evaluates against the current opponent only.
+- Stronger shaping (`--reward hp_weight=0.5 faint_weight=0.5`): widens the spread between losses fivefold. Shaping stays potential-based, so it cannot be farmed, and a win still always outscores a loss (the potential is positive whenever the opponent's team has all fainted and negative whenever ours has).
+- The step budget doubles from 500K for all arms, so `it4_base` against iteration 3 shows what longer training alone does.
+
+All arms also use the exact potential-based form of the shaping, gamma times the new potential minus the old one, where earlier runs used the plain difference. At the old weights the two differ by at most 0.001 per turn.
+
+Episode logs now record each battle's opponent, so training win rates can be split by opponent in the mixed runs. The better curriculum and shaping are then used to rerun the information-gap pairs, with both agents trained the same way.

@@ -54,7 +54,7 @@ The oracle observation uses the same layout with every opponent field filled in 
 
 ### Reward
 
-A terminal reward of +1 for a win and -1 for a loss, plus shaping for HP and knockouts. The shaping is the per-turn change in a potential: 0.1 times the HP difference between the teams plus 0.1 times the knockout difference, each scaled to [-1, 1]. Because the per-turn terms telescope, total shaping over a battle equals the final potential, which is bounded by 0.2 and so can never outweigh the terminal reward. Without a cap the agent can learn to farm damage without winning, which happened in earlier work of mine with uncapped weights.
+A terminal reward of +1 for a win and -1 for a loss, plus shaping for HP and knockouts. The shaping is potential-based: each turn's shaping reward is gamma times the new potential minus the old one, where the potential is a weighted HP difference between the teams plus a weighted knockout difference, each scaled to [-1, 1]. The per-turn terms telescope, so total shaping over a battle comes down to the final potential, which acts as a margin-of-victory bonus. Because shaping depends only on the state, damage dealt and then healed back earns nothing, so the agent cannot farm damage without winning. That happened in earlier work of mine with shaping that was not potential-based. A win also always outscores a loss at any weights: the final potential is positive when the opponent's whole team has fainted and negative when ours has. The default weights are 0.1 and 0.1. Iteration 4 (`docs/iteration-log.md`) tests 0.5 and 0.5, which spreads returns between close losses and routs fivefold.
 
 ### Agents
 
@@ -83,7 +83,7 @@ The transformer agent is trained with realistic observations only. The oracle ob
 
 ### Opponents and baselines
 
-Scripted players that ship with poke-env: `RandomPlayer`, `MaxBasePowerPlayer` (always picks the highest-power move) and `SimpleHeuristicsPlayer` (type matchups, switching and stat boosts). These serve as both training opponents, in a curriculum from weakest to strongest, and as the baselines every agent is measured against. Self-play is a possible extension once both agents beat the scripted opponents. It would also let each agent face an opponent that adapts to its predictability, which bears directly on the randomization question.
+Scripted players that ship with poke-env: `RandomPlayer`, `MaxBasePowerPlayer` (always picks the highest-power move) and `SimpleHeuristicsPlayer` (type matchups, switching and stat boosts). These serve as both training opponents, in a curriculum from weakest to strongest, and as the baselines every agent is measured against. A mixed variant of the curriculum keeps earlier opponents in the training battles after each advance. Self-play is a possible extension once both agents beat the scripted opponents. It would also let each agent face an opponent that adapts to its predictability, which bears directly on the randomization question.
 
 ## Experiments
 

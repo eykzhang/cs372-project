@@ -47,13 +47,13 @@ python -m src.train_dqn --run dqn_realistic --obs realistic --opponents random,m
 python -m src.train_ppo --run ppo_realistic --obs realistic --opponents random,max_power,heuristic --steps 200000
 ```
 
-Training writes `config.json`, `episodes.csv`, `evals.csv` and checkpoints (`best.pt`, `final.pt`) to `models/<run>/`. Use `--obs oracle` to train with the opponent's full team visible. The agent moves to the next opponent once its validation win rate reaches `--advance-at` (default 0.6).
+Training writes `config.json`, `episodes.csv`, `evals.csv` and checkpoints (`best.pt`, `final.pt`) to `models/<run>/`. Use `--obs oracle` to train with the opponent's full team visible. The agent moves to the next opponent once its validation win rate reaches `--advance-at` (default 0.6). With `--mixed`, half of the training battles after an advance are against earlier opponents.
 
-To use a server on another port, set `SHOWDOWN_PORT` (for example `SHOWDOWN_PORT=8001 python -m src.train_dqn ...`). Agent hyperparameters can be overridden without editing code: `--config lr=3e-4 gamma=0.995` sets fields of `DQNConfig` or `PPOConfig`, and the values used are saved in the run's `config.json`.
+To use a server on another port, set `SHOWDOWN_PORT` (for example `SHOWDOWN_PORT=8001 python -m src.train_dqn ...`). Agent hyperparameters can be overridden without editing code: `--config lr=3e-4 gamma=0.995` sets fields of `DQNConfig` or `PPOConfig`, and the values used are saved in the run's `config.json`. Shaping weights are overridden the same way with `--reward hp_weight=0.5 faint_weight=0.5` (fields of `RewardConfig` in `src/env.py`).
 
 ## 5. Running sweeps on a SLURM cluster (optional)
 
-`slurm/train_array.sbatch` runs one line of a sweep file per array task. Each task copies the Showdown server to node-local disk, starts it on its own port bound to localhost, trains, and shuts it down. `slurm/sweep.txt` lists the hyperparameter sweep (iteration 3 in `docs/iteration-log.md`), and `slurm/info_gap.txt` the information-gap runs: both agents, realistic and oracle observations, three seeds each.
+`slurm/train_array.sbatch` runs one line of a sweep file per array task. Each task copies the Showdown server to node-local disk, starts it on its own port bound to localhost, trains, and shuts it down. `slurm/sweep.txt` lists the hyperparameter sweep (iteration 3 in `docs/iteration-log.md`), and `slurm/info_gap.txt` the information-gap runs: both agents, realistic and oracle observations, three seeds each. `slurm/iteration4.txt` holds iteration 4: longer training, the mixed curriculum and stronger shaping.
 
 One-time setup on the cluster. These steps assume Node.js is installed but npm is not, as on the cluster this was developed for, so the built server is copied from a machine that already ran step 2:
 

@@ -1,0 +1,12 @@
+dqn --run dqn_it4_base_s0 --seed 0 --opponents random,max_power,heuristic --steps 1000000 --config gamma=0.995
+dqn --run dqn_it4_mixed_s0 --seed 0 --mixed --opponents random,max_power,heuristic --steps 1000000 --config gamma=0.995
+dqn --run dqn_it4_shaped_s0 --seed 0 --opponents random,max_power,heuristic --steps 1000000 --config gamma=0.995 --reward hp_weight=0.5 faint_weight=0.5
+dqn --run dqn_it4_base_s1 --seed 1 --opponents random,max_power,heuristic --steps 1000000 --config gamma=0.995
+dqn --run dqn_it4_mixed_s1 --seed 1 --mixed --opponents random,max_power,heuristic --steps 1000000 --config gamma=0.995
+dqn --run dqn_it4_shaped_s1 --seed 1 --opponents random,max_power,heuristic --steps 1000000 --config gamma=0.995 --reward hp_weight=0.5 faint_weight=0.5
+ppo --run ppo_it4_base_s0 --seed 0 --opponents random,max_power,heuristic --steps 1000000 --config gamma=0.995
+ppo --run ppo_it4_mixed_s0 --seed 0 --mixed --opponents random,max_power,heuristic --steps 1000000 --config gamma=0.995
+ppo --run ppo_it4_shaped_s0 --seed 0 --opponents random,max_power,heuristic --steps 1000000 --config gamma=0.995 --reward hp_weight=0.5 faint_weight=0.5
+ppo --run ppo_it4_base_s1 --seed 1 --opponents random,max_power,heuristic --steps 1000000 --config gamma=0.995
+ppo --run ppo_it4_mixed_s1 --seed 1 --mixed --opponents random,max_power,heuristic --steps 1000000 --config gamma=0.995
+ppo --run ppo_it4_shaped_s1 --seed 1 --opponents random,max_power,heuristic --steps 1000000 --config gamma=0.995 --reward hp_weight=0.5 faint_weight=0.5

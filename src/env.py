@@ -36,6 +36,7 @@ class RewardConfig:
     win: float = 1.0
     hp_weight: float = 0.1  # shaping total is capped at hp_weight + faint_weight
     faint_weight: float = 0.1
+    gamma: float = 1.0  # training sets the agent's discount, so shaping is gamma * potential(s') - potential(s)
 
 
 class Gen2Env(SinglesEnv):
@@ -85,9 +86,9 @@ class Gen2Env(SinglesEnv):
         return SinglesEnv.calc_term_trunc(battle)
 
     def calc_reward(self, battle: AbstractBattle) -> float:
-        # reward the change in potential, so shaping over a battle telescopes to its final value
+        # discounted change in potential, so per-turn shaping telescopes under the agent's discount
         potential = self.shaping_potential(battle)
-        reward = potential - self._reward_buffer.get(battle, 0.0)
+        reward = self.reward.gamma * potential - self._reward_buffer.get(battle, 0.0)
         self._reward_buffer[battle] = potential
         if battle.won:
             reward += self.reward.win
@@ -113,17 +114,28 @@ def make_env(
     return SingleAgentWrapper(env, make_opponent(opponent))
 
 
+CURRENT_OPPONENT_SHARE = 0.5  # mixed curriculum: share of training battles against the current opponent
+
+
 class Curriculum:
     """Ordered opponents; moves to the next one once the validation win rate reaches a threshold."""
 
-    def __init__(self, opponents: list[str], advance_at: float):
+    def __init__(self, opponents: list[str], advance_at: float, mixed: bool = False, seed: int | None = None):
         self.opponents = opponents
         self.advance_at = advance_at
+        self.mixed = mixed
         self.stage = 0
+        self.rng = np.random.default_rng(seed)
 
     @property
     def opponent(self) -> str:
         return self.opponents[self.stage]
+
+    def training_opponent(self) -> str:
+        """Opponent for the next training battle; a mixed curriculum also replays earlier stages."""
+        if not self.mixed or self.stage == 0 or self.rng.random() < CURRENT_OPPONENT_SHARE:
+            return self.opponent
+        return self.opponents[self.rng.integers(self.stage)]
 
     def update(self, win_rate: float, *envs: SingleAgentWrapper) -> bool:
         """Advance after a good evaluation and swap the opponent in each env; returns True if it advanced."""
