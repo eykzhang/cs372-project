@@ -10,13 +10,16 @@ from poke_env.teambuilder import Teambuilder
 
 TEAMS_DIR = Path(__file__).resolve().parent.parent / "data" / "teams"
 SPLITS = ("train", "val", "test")
+POOLS = {"ladder": "ladder_*.gen2ou_team", "expert": "team_*.gen2ou_team"}  # file name patterns
 
 
-def load_teams(split: str) -> list[str]:
-    """Return every team in a split as a packed Showdown team string."""
+def load_teams(split: str, pool: str | None = None) -> list[str]:
+    """Return a split's teams as packed Showdown team strings, optionally only its ladder or expert pool."""
     if split not in SPLITS:
         raise ValueError(f"unknown split {split!r}, expected one of {SPLITS}")
-    paths = sorted((TEAMS_DIR / split).glob("*.gen2ou_team"))
+    if pool is not None and pool not in POOLS:
+        raise ValueError(f"unknown pool {pool!r}, expected one of {list(POOLS)}")
+    paths = sorted((TEAMS_DIR / split).glob(POOLS[pool] if pool else "*.gen2ou_team"))
     if not paths:
         raise FileNotFoundError(f"no team files in {TEAMS_DIR / split}")
     teams = []

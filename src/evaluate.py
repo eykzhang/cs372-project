@@ -58,9 +58,9 @@ def evaluate_policy(env: SingleAgentWrapper, policy: Policy, n_battles: int) -> 
     return summarize(wins, n_battles) | {"mean_turns": float(np.mean(turns)), "mean_margin": float(np.mean(margins))}
 
 
-def scripted_matchup(player: str, opponent: str, split: str, n_battles: int, seed: int = 0) -> dict:
-    """Win rate of one scripted player against another, both drawing teams from a split."""
-    teams = load_teams(split)
+def scripted_matchup(player: str, opponent: str, split: str, n_battles: int, seed: int = 0, pool: str | None = None) -> dict:
+    """Win rate of one scripted player against another, both drawing teams from a split (or one of its pools)."""
+    teams = load_teams(split, pool)
     p1 = OPPONENTS[player](battle_format=BATTLE_FORMAT, team=RandomTeamPool(teams, seed), max_concurrent_battles=10, server_configuration=SERVER)
     p2 = OPPONENTS[opponent](battle_format=BATTLE_FORMAT, team=RandomTeamPool(teams, seed + 1), max_concurrent_battles=10, server_configuration=SERVER)
     asyncio.run(p1.battle_against(p2, n_battles=n_battles))

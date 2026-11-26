@@ -109,9 +109,10 @@ def make_env(
     split: str = "train",
     reward: RewardConfig | None = None,
     seed: int | None = None,
+    pool: str | None = None,
 ) -> SingleAgentWrapper:
-    """Single-agent env against a scripted opponent, both sides drawing teams from one split."""
-    env = Gen2Env(observation_mode, load_teams(split), reward or RewardConfig(), seed)
+    """Single-agent env against a scripted opponent, both sides drawing teams from one split (or one of its pools)."""
+    env = Gen2Env(observation_mode, load_teams(split, pool), reward or RewardConfig(), seed)
     return SingleAgentWrapper(env, make_opponent(opponent))
 
 

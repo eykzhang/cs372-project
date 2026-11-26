@@ -1,4 +1,4 @@
-"""Train a Double DQN agent through a curriculum of scripted opponents, keeping the best checkpoint against the last one.
+"""Train a Double DQN agent through a curriculum of scripted opponents, keeping the best checkpoint against the heuristic.
 
 Usage: python -m src.train_dqn --run dqn_realistic --obs realistic --opponents random,max_power,heuristic --steps 200000
 
@@ -11,18 +11,18 @@ import torch
 from src.dqn import DQNAgent, DQNConfig
 from src.encoding import OBS_SIZE
 from src.env import Curriculum, RewardConfig, make_env, make_opponent
-from src.training import TrainingRun, parse_training_args
+from src.training import EvalSettings, TrainingRun, parse_training_args
 
 
 def train(
     config: DQNConfig, reward_config: RewardConfig, run_name: str, obs_mode: str, curriculum: Curriculum,
-    seed: int, eval_every: int, eval_battles: int,
+    seed: int, eval_settings: EvalSettings,
 ):
-    """Train with epsilon-greedy exploration and replay, evaluating greedily on validation teams every eval_every steps."""
+    """Train with epsilon-greedy exploration and replay, evaluating greedily on validation teams."""
     env = make_env(obs_mode, curriculum.opponent, "train", reward_config, seed=seed)
     agent = DQNAgent(OBS_SIZE, env.action_space.n, config, seed)
     run = TrainingRun(
-        run_name, "dqn", config, reward_config, obs_mode, curriculum, seed, eval_battles,
+        run_name, "dqn", config, reward_config, obs_mode, curriculum, seed, eval_settings,
         episode_fields=["episode", "step", "opponent", "return", "won", "turns", "epsilon", "loss"],
     )
 
@@ -63,9 +63,12 @@ def train(
         if step % config.target_update_every == 0:
             agent.sync_target()
 
-        # periodic greedy evaluation on validation teams
-        if step % eval_every == 0 and run.evaluate(step, episode, agent.act, agent.q_net, env):
+        # curriculum gate, best-checkpoint selection and early stopping, all greedy on validation teams
+        advanced, stop = run.periodic(step, episode, agent.act, agent.q_net, env)
+        if advanced:
             opponent = curriculum.opponent
+        if stop:
+            break
 
     run.finish(agent.q_net)
     env.close()
@@ -73,9 +76,9 @@ def train(
 
 def main():
     """Parse the command line and train one DQN run."""
-    args, config, reward_config, curriculum = parse_training_args(DQNConfig)
+    args, config, reward_config, curriculum, eval_settings = parse_training_args(DQNConfig)
     torch.set_num_threads(1)  # the network is small; extra threads only compete with the simulator
-    train(config, reward_config, args.run, args.obs, curriculum, args.seed, args.eval_every, args.eval_battles)
+    train(config, reward_config, args.run, args.obs, curriculum, args.seed, eval_settings)
 
 
 if __name__ == "__main__":

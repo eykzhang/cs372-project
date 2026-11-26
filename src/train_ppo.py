@@ -1,4 +1,4 @@
-"""Train a PPO agent through a curriculum of scripted opponents, keeping the best checkpoint against the last one.
+"""Train a PPO agent through a curriculum of scripted opponents, keeping the best checkpoint against the heuristic.
 
 Usage: python -m src.train_ppo --run ppo_realistic --obs realistic --opponents random,max_power,heuristic --steps 200000
 
@@ -12,18 +12,18 @@ from src.encoding import OBS_SIZE
 from src.env import Curriculum, RewardConfig, make_env, make_opponent
 from src.ppo import PPOAgent, PPOConfig
 from src.run_log import CsvLog
-from src.training import TrainingRun, parse_training_args
+from src.training import EvalSettings, TrainingRun, parse_training_args
 
 
 def train(
     config: PPOConfig, reward_config: RewardConfig, run_name: str, obs_mode: str, curriculum: Curriculum,
-    seed: int, eval_every: int, eval_battles: int,
+    seed: int, eval_settings: EvalSettings,
 ):
-    """Train on fixed-length rollouts, evaluating the stochastic policy on validation teams every eval_every steps."""
+    """Train on fixed-length rollouts, evaluating the stochastic policy on validation teams."""
     env = make_env(obs_mode, curriculum.opponent, "train", reward_config, seed=seed)
     agent = PPOAgent(OBS_SIZE, env.action_space.n, config, seed)
     run = TrainingRun(
-        run_name, "ppo", config, reward_config, obs_mode, curriculum, seed, eval_battles,
+        run_name, "ppo", config, reward_config, obs_mode, curriculum, seed, eval_settings,
         episode_fields=["episode", "step", "opponent", "return", "won", "turns"],
     )
     update_log = CsvLog(run.dir / "updates.csv", ["step", "policy_loss", "value_loss", "entropy", "clip_fraction"])
@@ -61,9 +61,12 @@ def train(
             stats = agent.update(last_value=agent.value(obs))
             update_log.write({"step": step} | stats)
 
-        # periodic evaluation on validation teams
-        if step % eval_every == 0 and run.evaluate(step, episode, agent.act, agent.net, env):
+        # curriculum gate, best-checkpoint selection and early stopping on validation teams
+        advanced, stop = run.periodic(step, episode, agent.act, agent.net, env)
+        if advanced:
             opponent = curriculum.opponent
+        if stop:
+            break
 
     run.finish(agent.net)
     env.close()
@@ -71,9 +74,9 @@ def train(
 
 def main():
     """Parse the command line and train one PPO run."""
-    args, config, reward_config, curriculum = parse_training_args(PPOConfig)
+    args, config, reward_config, curriculum, eval_settings = parse_training_args(PPOConfig)
     torch.set_num_threads(1)  # the network is small; extra threads only compete with the simulator
-    train(config, reward_config, args.run, args.obs, curriculum, args.seed, args.eval_every, args.eval_battles)
+    train(config, reward_config, args.run, args.obs, curriculum, args.seed, eval_settings)
 
 
 if __name__ == "__main__":

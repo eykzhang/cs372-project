@@ -168,3 +168,79 @@ Stronger shaping gave PPO the highest mean on both opponents and the smallest sp
 No arm fixed the DQN collapse. The two DQN runs that reached the heuristic ended worse than the four that did not: `dqn_it4_shaped_s0` peaked at 0.26 in training and finished at 0.008, and `dqn_it4_base_s0` fell to 0.092 against max_power. Neither mixed DQN run passed the max_power gate in 1M steps, so the mixed curriculum never got to test the heuristic stage it was meant for. The best DQN result, `dqn_it4_shaped_s1` (0.424 and 0.140), never reached the heuristic either. That is the same split by curriculum stage as in the information-gap runs.
 
 **Selected.** Stronger shaping (0.5 + 0.5), the standard curriculum and the 500K step budget, with gamma 0.995 for both agents. The information-gap pairs are rerun on this setup: both agents, realistic and oracle observations, three seeds each (`slurm/info_gap_shaped.txt`). Evaluation stays greedy for DQN (epsilon 0), the same protocol as every earlier DQN result. If DQN collapses again at the heuristic stage, its information gap is reported as not measurable, and the collapse itself is reported as a finding.
+
+**Information-gap rerun on the selected setup.** The 12 runs in `slurm/info_gap_shaped.txt` (both agents, realistic and oracle observations, three seeds, 500K steps, gamma 0.995, shaping 0.5 + 0.5) were each evaluated from `final.pt` with 500 battles per opponent on validation teams (`data/results/info_gap_shaped_val.csv`).
+
+| Run | Heuristic stage from | vs max_power | vs heuristic |
+|---|---|---|---|
+| `ppo_shaped_realistic_s0` | 130K | 0.708 [0.67, 0.75] | 0.256 [0.22, 0.30] |
+| `ppo_shaped_realistic_s1` | 130K | 0.654 [0.61, 0.69] | 0.266 [0.23, 0.31] |
+| `ppo_shaped_realistic_s2` | 150K | 0.686 [0.64, 0.73] | 0.260 [0.22, 0.30] |
+| `ppo_shaped_oracle_s0` | 200K | 0.522 [0.48, 0.57] | 0.196 [0.16, 0.23] |
+| `ppo_shaped_oracle_s1` | 100K | 0.550 [0.51, 0.59] | 0.138 [0.11, 0.17] |
+| `ppo_shaped_oracle_s2` | 160K | 0.710 [0.67, 0.75] | 0.244 [0.21, 0.28] |
+| `dqn_shaped_realistic_s0` | 380K | 0.316 [0.28, 0.36] | 0.068 [0.05, 0.09] |
+| `dqn_shaped_realistic_s1` | never | 0.284 [0.25, 0.33] | 0.062 [0.04, 0.09] |
+| `dqn_shaped_realistic_s2` | 350K | 0.222 [0.19, 0.26] | 0.066 [0.05, 0.09] |
+| `dqn_shaped_oracle_s0` | never | 0.390 [0.35, 0.43] | 0.156 [0.13, 0.19] |
+| `dqn_shaped_oracle_s1` | 50K | 0.164 [0.13, 0.20] | 0.068 [0.05, 0.09] |
+| `dqn_shaped_oracle_s2` | 380K | 0.168 [0.14, 0.20] | 0.088 [0.07, 0.12] |
+
+Information gap (oracle minus realistic win rate, three seeds pooled, with a binomial 95% interval that leaves out seed-to-seed variation), next to the experiment 3 runs at the old shaping weights (`data/results/info_gap_val.csv`):
+
+| Agent | Opponent | Gap, shaping 0.1 + 0.1 | Gap, shaping 0.5 + 0.5 |
+|---|---|---|---|
+| PPO | max_power | -0.126 ± 0.034 | -0.089 ± 0.034 |
+| PPO | heuristic | -0.105 ± 0.029 | -0.068 ± 0.030 |
+| DQN | max_power | +0.166 ± 0.028 | -0.033 ± 0.031 |
+| DQN | heuristic | +0.044 ± 0.015 | +0.039 ± 0.020 |
+
+**Result of the rerun.** PPO's gap stayed negative and shrank by about a third. Realistic PPO beat oracle PPO against the heuristic on all three seeds, as in experiment 3, so six of six seed pairs now point the same way. Realistic PPO was also far more consistent across seeds (0.256 to 0.266) than oracle PPO (0.138 to 0.244).
+
+DQN is still confounded by curriculum stage, though this time evenly: each observation mode has one run that stayed at max_power and two that reached the heuristic and declined. The collapsed runs finished at 0.06 to 0.09 against the heuristic, higher than the 0.01 to 0.03 of experiment 3, most likely because three of the four reached the heuristic only at 350K to 380K steps and had less time to decay. The one matched pair at the max_power stage favors oracle (`dqn_shaped_oracle_s0` 0.390 and 0.156 against `dqn_shaped_realistic_s1` 0.284 and 0.062). That is the opposite direction from PPO, but one pair is not a reportable gap.
+
+**Train-split check.** In experiment 3, oracle PPO did worse on validation teams than on training teams while realistic PPO did the reverse. The six shaped PPO runs were evaluated again with 500 battles per opponent on the training split (`data/results/info_gap_shaped_train.csv`), three seeds pooled:
+
+| Mode | vs max_power, train | vs max_power, val | vs heuristic, train | vs heuristic, val |
+|---|---|---|---|---|
+| Realistic | 0.585 | 0.683 | 0.234 | 0.261 |
+| Oracle | 0.595 | 0.594 | 0.243 | 0.193 |
+
+On training teams the two modes are level (oracle ahead by 0.010 and 0.009), so PPO's negative information gap appears only on validation teams. Realistic PPO does better on validation teams than on training teams against both opponents; oracle PPO does not improve against max_power and drops 0.051 against the heuristic, with the largest drop on `ppo_shaped_oracle_s1` (0.236 to 0.138).
+
+Memorizing individual teams is an unlikely cause. Each run played about 12,000 battles drawn from 2,486 training teams, so a given team appeared about ten times. The training split is almost all ladder teams and the validation split is four expert-built teams, so the more likely reading is that oracle PPO learned something from full movesets and items on ladder teams that does not hold on expert teams, while the coarser realistic view transfers. This is not yet tested.
+
+**Correction, made while planning iteration 5.** The Result above says doubling the step budget did not help PPO. That compared one arm's `final.pt` at 1M steps with different runs at 500K. The in-training evaluations of the same 1M runs say otherwise: all six PPO runs set their best evaluation against the heuristic after 500K steps (540K to 990K), and the shaped arm averaged 0.17 before 600K and 0.23 to 0.29 after. Averaged over 600K to 800K and 800K to 1M, three runs rose slightly, one was flat and two fell, so PPO may be close to levelling off by 1M, but these are 100-battle evaluations on four teams. The 500K budget chosen in **Selected** was based on the wrong comparison.
+
+## Iteration 5: a proper validation set, best checkpoints and the final experiments (planned 2026-11-26)
+
+This is the last training iteration. Everything after it is analysis of the models it produces.
+
+**Why.** Reviewing iterations 2 to 4 turned up four problems.
+
+1. Validation was four expert teams and test three. Ladder teams went into training in iteration 2, but validation and test were never enlarged. Since both players draw from the same split, every validation number came from 16 team pairings, and the curriculum gate and checkpoint selection were tuned to those 16 too. Comparisons within a split (DQN vs. PPO, realistic vs. oracle, arm vs. arm) were fair, but no result can be claimed for Gen 2 OU teams in general. The PPO information-gap result is affected directly: oracle PPO matched realistic PPO on training teams and fell behind only on the four validation teams.
+2. Runs were compared on `final.pt`. The best checkpoint of a run can come well before its end (DQN peaked within 50K steps of reaching the heuristic) or well after a fixed budget (PPO above), so `final.pt` measures when training happened to stop.
+3. DQN's results depend on whether a run reached the heuristic stage, which differs by seed. Its information gap cannot be read until the stage is held fixed.
+4. In realistic observations, an opponent's revealed Hidden Power was encoded as a Normal-type attack (poke-env does not know its type, and Gen 2 Hidden Power is never Normal), adding a false attack-type flag and false matchup values for most opponents. The agent's own Hidden Power and the oracle observation were correct.
+
+**Changes.**
+
+- Team split (`data/README.md`). Validation and test each gain a ladder pool of 100 held-out team compositions, at most three teams each (183 and 181 teams), drawn so that no set of six Pokemon appears in two splits. Training keeps 1,859 ladder teams and the 11 expert teams. The four and three expert teams stay as a separate expert pool in validation and test. The ladder teams turned out to repeat compositions heavily (724 compositions over 2,475 teams), which is why the held-out pools are counted in compositions.
+- Training evaluates on the validation ladder pool only.
+- Checkpoint selection. Every 25K steps, 200 validation battles against the heuristic, whatever the current curriculum stage, and `best.pt` keeps the best. The curriculum gate is unchanged.
+- Step budget 2M, with early stopping after 600K steps on the final curriculum stage without a new best. In the six 1M-step PPO runs of iteration 4 the longest wait between new bests was 270K to 530K steps, and PPO set a new best as late as 990K. Every DQN run that reached the heuristic set its best within 50K steps of arriving and never beat it, so a collapsed DQN run stops around 600K steps after its peak. The countdown starts only on the final stage, because DQN runs still on max_power have advanced as late as 380K.
+- An opponent's Hidden Power is encoded as a move of unknown type (`known_type` in `src/encoding.py`).
+
+Unchanged from iteration 4: gamma 0.995, shaping 0.5 + 0.5, the standard curriculum, network sizes and every other hyperparameter.
+
+**Runs.** `slurm/final.txt`, 30 runs, three seeds per arm:
+
+| Group | Runs | Arms | Question |
+|---|---|---|---|
+| `i5_full` | 12 | DQN and PPO, realistic and oracle, curriculum random, max_power, heuristic | Information gap, the headline result |
+| `i5_capped` | 12 | Same, curriculum stopped at max_power | Information gap with the curriculum stage held fixed, so DQN's is measurable |
+| `i5_dueling` | 6 | Dueling DQN, realistic and oracle, full curriculum | Whether a dueling head prevents the collapse. Run in both modes so that, if it does, it also gives a DQN information gap. |
+
+**Evaluation protocol.** Each run's `best.pt`, 500 battles per opponent against max_power and the heuristic on the test split, with the ladder and expert pools reported separately. Validation picked the checkpoint, so it is not used for reported numbers. Results are given per seed with the spread across seeds alongside the pooled Wilson interval. `final.pt` is kept to show how runs ended, which for DQN measures the collapse.
+
+**Not run.** Sparse reward, a vanilla DQN target, the masking-vs-penalty ablation, the memory extensions and self-play (`docs/design.md`).

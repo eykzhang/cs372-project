@@ -6,7 +6,7 @@
 #SBATCH --partition=compsci
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=4G
-#SBATCH --time=08:00:00
+#SBATCH --time=12:00:00
 #SBATCH --output=slurm/logs/%x_%A_%a.out
 
 set -euo pipefail

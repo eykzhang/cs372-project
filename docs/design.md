@@ -1,6 +1,6 @@
 # Design: Double DQN vs. PPO Under Hidden Information in Gen 2 OU Pokemon
 
-Status: planning document, written 2026-11-23 before implementation. Sections describe intended design; results go in the README's Evaluation section once they exist.
+Status: written 2026-11-23 before implementation and updated as the design changed, most recently for iteration 5 (2026-11-26). Results go in the README's Evaluation section.
 
 ## Research question
 
@@ -38,7 +38,9 @@ A Gymnasium environment built on poke-env's `SinglesEnv`, playing against a loca
 
 ### Teams
 
-Validation and test teams are expert-built Gen 2 OU teams from Metamon's `competitive` set: 18 teams, split 11 / 4 / 3 into training, validation and held-out test teams. The training split also holds 2,475 teams from Metamon's `hl_05_26` set, predicted from high-rated ladder replays, with any team that has the same six Pokemon as a validation or test team removed. These were added in iteration 2 after DQN overfit the 11 competitive training teams (`docs/iteration-log.md`). Validation teams pick checkpoints and hyperparameters; test teams are touched only for final numbers. Each battle, both players draw a team at random from the same split. Details in `data/README.md`.
+Two team sets from Metamon's team dataset, each split into training, validation and test. The ladder pool is predicted from high-rated ladder replays (`hl_05_26` set): 1,859 training teams, and 100 held-out team compositions each for validation and test (183 and 181 teams). The expert pool is 18 expert-built teams (`competitive` set), split 11 / 4 / 3. No set of six Pokemon appears in more than one split. Validation's ladder pool gates the curriculum and picks checkpoints; test teams are touched only for final numbers, reported separately for each pool. Each battle, both players draw a team at random from the same split or pool. Details in `data/README.md`.
+
+The split changed twice. The ladder teams were added to training in iteration 2 after DQN overfit the 11 expert training teams, and the held-out ladder pools were added in iteration 5, because until then every validation number came from four teams (`docs/iteration-log.md`).
 
 ### State encoding
 
@@ -48,7 +50,7 @@ Hand-designed features. In the realistic observation, opponent information appea
 - For each of the active Pokemon's 4 moves: base power, type, accuracy, remaining PP fraction, and derived features computed against the opponent's active Pokemon (type effectiveness multiplier, same-type attack bonus).
 - Battle-level features: turn number, weather and turns remaining, Spikes on each side, Pokemon remaining on each side.
 
-Each Pokemon slot also carries derived features: the types and roles (recovery, setup, Explosion, sleep, Spikes, phazing, Rapid Spin, Sleep Talk) of its known moves, its best known attack into the opposing active Pokemon, and the worst type matchup it faces from that Pokemon. An unrevealed opponent slot is encoded as full HP with an unknown item, which is known for certain because it has never been in battle. The vector has 956 features.
+Each Pokemon slot also carries derived features: the types and roles (recovery, setup, Explosion, sleep, Spikes, phazing, Rapid Spin, Sleep Talk) of its known moves, its best known attack into the opposing active Pokemon, and the worst type matchup it faces from that Pokemon. An unrevealed opponent slot is encoded as full HP with an unknown item, which is known for certain because it has never been in battle. An opponent's Hidden Power counts as a move of unknown type: poke-env reports it as Normal, which it never is in Gen 2, and the protocol does not reveal the real type. The vector has 956 features.
 
 The oracle observation uses the same layout with every opponent field filled in from the opponent's true team, so the two variants differ only in what is hidden. Opponent slots are ordered by reveal in both modes; the oracle fills the remaining slots with the unrevealed Pokemon. The true team comes from the opponent's own battle object, which poke-env keeps in the same process.
 
@@ -63,7 +65,7 @@ A terminal reward of +1 for a win and -1 for a loss, plus shaping for HP and kno
 - Experience replay buffer that stores the next state's legality mask alongside each transition.
 - Huber loss and epsilon-greedy exploration with a decaying epsilon.
 - Masking applies in two places: illegal actions get a Q-value of negative infinity when choosing an action, and again when taking the max over next-state actions in the bootstrap target. Without the second one, the target can bootstrap from a move the agent could never have made.
-- A dueling network head is the planned architecture variant.
+- A dueling network head (`dueling=true`) is tested as an architecture variant in iteration 5, because the DQN collapse looks like action values losing their differences once nearly every battle is lost.
 
 **PPO.** Written from scratch in PyTorch.
 - Actor-critic network with a shared trunk.
@@ -72,9 +74,9 @@ A terminal reward of +1 for a win and -1 for a loss, plus shaping for HP and kno
 - Masked categorical policy: illegal actions get negative-infinity logits before the softmax.
 - Evaluated by sampling from its policy, since the stochastic policy is what it learned and what the randomization question is about. DQN is evaluated greedily.
 
-### Memory (stretch)
+### Memory (stretch, not built)
 
-Both core agents are memoryless MLPs: anything from earlier turns reaches them only through hand-designed features such as revealed moves and items. Two optional extensions test whether learned memory helps under hidden information:
+Dropped in iteration 5 for time; kept here as the planned design. Both core agents are memoryless MLPs: anything from earlier turns reaches them only through hand-designed features such as revealed moves and items. Two optional extensions test whether learned memory helps under hidden information:
 
 1. **Frame stacking.** Concatenate the last few turns' observations into the MLP input, for both agents. This works with DQN's replay buffer unchanged and gives a first, inexpensive measure of whether history adds anything beyond the hand-designed features.
 2. **Transformer PPO.** A small causal transformer (about 2 layers, 4 heads, width 64-128) over the sequence of per-turn observation embeddings, with policy and value heads at every step. Attention is causal so turn t sees only turns 1 through t, matching what the agent knows at play time. PPO fits naturally because its rollouts are already whole battles. A transformer DQN would need sequence replay with burn-in, a substantially larger piece of work, and is out of scope.
@@ -83,7 +85,7 @@ The transformer agent is trained with realistic observations only. The oracle ob
 
 ### Opponents and baselines
 
-Scripted players that ship with poke-env: `RandomPlayer`, `MaxBasePowerPlayer` (always picks the highest-power move) and `SimpleHeuristicsPlayer` (type matchups, switching and stat boosts). These serve as both training opponents, in a curriculum from weakest to strongest, and as the baselines every agent is measured against. A mixed variant of the curriculum keeps earlier opponents in the training battles after each advance. Self-play is a possible extension once both agents beat the scripted opponents. It would also let each agent face an opponent that adapts to its predictability, which bears directly on the randomization question.
+Scripted players that ship with poke-env: `RandomPlayer`, `MaxBasePowerPlayer` (always picks the highest-power move) and `SimpleHeuristicsPlayer` (type matchups, switching and stat boosts). These serve as both training opponents, in a curriculum from weakest to strongest, and as the baselines every agent is measured against. A mixed variant of the curriculum keeps earlier opponents in the training battles after each advance. Self-play was a possible extension once both agents beat the scripted opponents, dropped in iteration 5 for time. It would also let each agent face an opponent that adapts to its predictability, which bears directly on the randomization question.
 
 ## Experiments
 
@@ -93,19 +95,21 @@ Scripted players that ship with poke-env: `RandomPlayer`, `MaxBasePowerPlayer` (
 4. **Randomization analysis.** Policy entropy over the course of battles, and the accuracy of a classifier trained to predict each agent's actions from the state.
 5. **Head-to-head.** DQN against PPO, each matchup of teams played from both sides so neither agent benefits from a stronger team.
 6. **Ablations**, each varying one design choice with everything else fixed:
-   - shaped vs. sparse reward
-   - action masking vs. a penalty for illegal actions
-   - Double DQN vs. vanilla DQN target
-   - dueling vs. plain Q-network head
+   - what the agent observes, realistic vs. oracle (experiment 3)
+   - shaping weight, 0.1 vs. 0.5 (iteration 4)
+   - dueling vs. plain Q-network head (iteration 5)
+
+   Sparse reward, a penalty for illegal actions in place of masking, and a vanilla DQN target were dropped: the shaping weights were already compared, and the other two do not bear on the hidden-information question.
 7. **Hyperparameter search** over at least three configurations per agent (learning rate, discount, exploration schedule or entropy coefficient), selected on validation teams.
-8. **Generalization.** Performance on held-out test teams compared with training teams.
+8. **Generalization.** Performance on held-out test teams compared with training teams, separately for the ladder and expert pools.
 9. **Error analysis.** Losses broken down by cause, with replay inspection of representative failures. Examples: attacking into a type immunity, failing to switch out of a losing matchup, misplaying against an item that had not yet been revealed.
 10. **Behavioral probes.** Edit one feature of a real game state, such as revealing or hiding an opponent's Pokemon, item or move, or changing our HP. Then measure how each agent's action choice and value estimate respond.
-11. **Memory (stretch).** Information gap for frame-stacked agents, and for transformer PPO against MLP PPO, both under realistic observations.
+11. **Memory (stretch, dropped).** Information gap for frame-stacked agents, and for transformer PPO against MLP PPO. Dropped in iteration 5 for time.
 
 ## Metrics
 
-- Win rate with 95% Wilson confidence intervals, from at least 500 battles for any headline number.
+- Win rate with 95% Wilson confidence intervals, from at least 500 battles for any headline number, reported per seed with the spread across seeds, since seed-to-seed variation is larger than the interval.
+- Each run's reported checkpoint is `best.pt`: training evaluates against the heuristic every 25K steps on the validation ladder pool (200 battles), keeps the best, and stops after 600K steps on the final curriculum stage without a new best, or at 2M steps. Final numbers are measured on test teams, since validation picked the checkpoint.
 - Information gap: oracle win rate minus realistic win rate, per agent, with intervals.
 - Policy entropy and action predictability (classifier accuracy against a majority-class baseline).
 - Sample efficiency: environment steps needed to reach a fixed win rate against each opponent.

@@ -19,6 +19,8 @@ from src.teams import SPLITS, TEAMS_DIR
 DATASET_URL = "https://huggingface.co/datasets/jakegrigsby/metamon-teams/resolve"
 REVISION = "bff785c80a06273faee1c675d368948f5dd65d44"
 SPLIT_SIZES = {"train": 11, "val": 4, "test": 3}
+LADDER_HELD_OUT = {"val": 100, "test": 100}  # ladder team compositions (sets of six Pokemon) per held-out split
+MAX_PER_COMPOSITION = 3  # held-out copies kept per composition, so popular ones do not dominate
 SPLIT_SEED = 0
 
 
@@ -71,6 +73,26 @@ def filter_ladder(teams: dict[str, str], held_out: list[str]) -> dict[str, str]:
     return kept
 
 
+def split_ladder(teams: dict[str, str], train_expert: list[str]) -> dict[str, dict[str, str]]:
+    """Hold out whole ladder team compositions for validation and test; the rest, and any expert training match, train."""
+    groups: dict[frozenset[str], list[str]] = {}
+    for name in sorted(teams, key=team_number):
+        groups.setdefault(species_set(teams[name]), []).append(name)
+    expert_species = {species_set(text) for text in train_expert}
+    candidates = sorted(names for species, names in groups.items() if species not in expert_species)
+    random.Random(SPLIT_SEED).shuffle(candidates)
+
+    splits = {split: {} for split in SPLITS}
+    held_out, start = set(), 0
+    for split, n_compositions in LADDER_HELD_OUT.items():
+        for names in candidates[start:start + n_compositions]:
+            splits[split] |= {name: teams[name] for name in names[:MAX_PER_COMPOSITION]}
+            held_out.update(names)  # extra copies are dropped, since training on them would leak the composition
+        start += n_compositions
+    splits["train"] = {name: text for name, text in teams.items() if name not in held_out}
+    return splits
+
+
 def main():
     """Download both team sets, redo the seeded split and ladder filters, and write the team files."""
     parser = argparse.ArgumentParser()
@@ -79,8 +101,9 @@ def main():
 
     splits = split_competitive(download_teams("competitive"))
     held_out = list(splits["val"].values()) + list(splits["test"].values())
-    ladder = filter_ladder(download_teams("hl_05_26"), held_out)
-    splits["train"] |= ladder
+    ladder = split_ladder(filter_ladder(download_teams("hl_05_26"), held_out), list(splits["train"].values()))
+    for split in SPLITS:
+        splits[split] |= ladder[split]
 
     # replace any existing team files so the output matches the split exactly
     for split, teams in splits.items():

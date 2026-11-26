@@ -47,13 +47,19 @@ python -m src.train_dqn --run dqn_realistic --obs realistic --opponents random,m
 python -m src.train_ppo --run ppo_realistic --obs realistic --opponents random,max_power,heuristic --steps 200000
 ```
 
-Training writes `config.json`, `episodes.csv`, `evals.csv` and checkpoints (`best.pt`, `final.pt`) to `models/<run>/`. Use `--obs oracle` to train with the opponent's full team visible. The agent moves to the next opponent once its validation win rate reaches `--advance-at` (default 0.6). With `--mixed`, half of the training battles after an advance are against earlier opponents.
+Training writes `config.json`, `episodes.csv`, `evals.csv`, `selection.csv` and checkpoints (`best.pt`, `final.pt`) to `models/<run>/`. Use `--obs oracle` to train with the opponent's full team visible. The agent moves to the next opponent once its win rate on the validation ladder pool reaches `--advance-at` (default 0.6). With `--mixed`, half of the training battles after an advance are against earlier opponents. Every `--select-every` steps (default 25,000) the agent plays `--select-battles` (default 200) validation battles against the heuristic, and `best.pt` keeps the best result. `--patience 600000` stops a run after 600K steps on its final opponent without a new best.
+
+To evaluate saved runs under one protocol, for example the best checkpoints on the ladder test pool:
+
+```bash
+python -m src.evaluate_runs --runs ppo_i5_full_realistic_s0 dqn_i5_full_realistic_s0 --checkpoint best --split test --pool ladder --battles 500 --out final_test_ladder
+```
 
 To use a server on another port, set `SHOWDOWN_PORT` (for example `SHOWDOWN_PORT=8001 python -m src.train_dqn ...`). Agent hyperparameters can be overridden without editing code: `--config lr=3e-4 gamma=0.995` sets fields of `DQNConfig` or `PPOConfig`, and the values used are saved in the run's `config.json`. Shaping weights are overridden the same way with `--reward hp_weight=0.5 faint_weight=0.5` (fields of `RewardConfig` in `src/env.py`).
 
 ## 5. Running sweeps on a SLURM cluster (optional)
 
-`slurm/train_array.sbatch` runs one line of a sweep file per array task. Each task copies the Showdown server to node-local disk, starts it on its own port bound to localhost, trains, and shuts it down. `slurm/sweep.txt` lists the hyperparameter sweep (iteration 3 in `docs/iteration-log.md`), and `slurm/info_gap.txt` the information-gap runs: both agents, realistic and oracle observations, three seeds each. `slurm/iteration4.txt` holds iteration 4: longer training, the mixed curriculum and stronger shaping. `slurm/info_gap_shaped.txt` reruns the information-gap runs with the stronger shaping selected in iteration 4.
+`slurm/train_array.sbatch` runs one line of a sweep file per array task. Each task copies the Showdown server to node-local disk, starts it on its own port bound to localhost, trains, and shuts it down. `slurm/sweep.txt` lists the hyperparameter sweep (iteration 3 in `docs/iteration-log.md`), and `slurm/info_gap.txt` the information-gap runs: both agents, realistic and oracle observations, three seeds each. `slurm/iteration4.txt` holds iteration 4: longer training, the mixed curriculum and stronger shaping. `slurm/info_gap_shaped.txt` reruns the information-gap runs with the stronger shaping selected in iteration 4. `slurm/final.txt` holds the 30 runs of iteration 5, the final experiments, on the current team split.
 
 One-time setup on the cluster. These steps assume Node.js is installed but npm is not, as on the cluster this was developed for, so the built server is copied from a machine that already ran step 2:
 

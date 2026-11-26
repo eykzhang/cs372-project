@@ -94,6 +94,13 @@ def is_damaging(move: Move) -> bool:
     return move.category != MoveCategory.STATUS
 
 
+def known_type(move: Move) -> PokemonType | None:
+    """A move's type, or None for an opponent's Hidden Power, which poke-env reports as Normal."""
+    if move.id.startswith("hiddenpower") and move.type == PokemonType.NORMAL:
+        return None  # Gen 2 Hidden Power is never Normal; the protocol does not reveal its type
+    return move.type
+
+
 def encode_item(item: str | None) -> list[float]:
     """One-hot held item, with extra slots for an unlisted item, no item, and an unrevealed item."""
     if item == "unknown_item":
@@ -113,13 +120,13 @@ def encode_pokemon(mon: Pokemon | None, opposing_active: Pokemon | None) -> list
         return unseen + [0.0] * (POKEMON_SIZE - len(unseen))
 
     moves = list(mon.moves.values())
-    move_types = [1.0 if any(is_damaging(m) and m.type == t for m in moves) else 0.0 for t in TYPES]
+    move_types = [1.0 if any(is_damaging(m) and known_type(m) == t for m in moves) else 0.0 for t in TYPES]
     roles = [1.0 if any(m.id in ids for m in moves) else 0.0 for ids in MOVE_ROLES.values()]
 
     # matchup against whatever is currently in front of this Pokemon
     best_attack, worst_taken = 0.0, 0.0
     if opposing_active is not None:
-        attacks = [effectiveness(m.type, opposing_active) for m in moves if is_damaging(m)]
+        attacks = [effectiveness(known_type(m), opposing_active) for m in moves if is_damaging(m) and known_type(m)]
         best_attack = max(attacks, default=0.0)
         worst_taken = max(effectiveness(t, mon) for t in opposing_active.types)
 

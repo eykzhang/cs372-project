@@ -1,0 +1,13 @@
+run,algorithm,obs_mode,checkpoint,opponent,split,battles,wins,win_rate,ci_low,ci_high,mean_turns,mean_margin
+ppo_shaped_realistic_s0,ppo,realistic,final,max_power,train,500,282,0.564,0.5202088800086124,0.6068151688194319,32.924,0.446
+ppo_shaped_realistic_s0,ppo,realistic,final,heuristic,train,500,105,0.21,0.17657669884786484,0.2478455799000591,30.392,-1.41
+ppo_shaped_realistic_s1,ppo,realistic,final,max_power,train,500,306,0.612,0.5685873695673256,0.6537047158817519,29.526,0.678
+ppo_shaped_realistic_s1,ppo,realistic,final,heuristic,train,500,115,0.23,0.19525432702175258,0.2688629669849352,28.392,-1.148
+ppo_shaped_realistic_s2,ppo,realistic,final,max_power,train,500,290,0.58,0.5362886484411069,0.6224914125939485,29.982,0.584
+ppo_shaped_realistic_s2,ppo,realistic,final,heuristic,train,500,131,0.262,0.22537563309481617,0.30225368532589386,27.878,-1.134
+ppo_shaped_oracle_s0,ppo,oracle,final,max_power,train,500,298,0.596,0.5524145429626023,0.6381215302794642,30.376,0.586
+ppo_shaped_oracle_s0,ppo,oracle,final,heuristic,train,500,121,0.242,0.20651719550386513,0.28141710765808103,27.748,-1.23
+ppo_shaped_oracle_s1,ppo,oracle,final,max_power,train,500,299,0.598,0.5544335612927798,0.6400720134751632,34.252,0.61
+ppo_shaped_oracle_s1,ppo,oracle,final,heuristic,train,500,118,0.236,0.20088068978132578,0.27514510880299115,32.374,-1.262
+ppo_shaped_oracle_s2,ppo,oracle,final,max_power,train,500,295,0.59,0.5463618796646929,0.6322656889997446,30.022,0.552
+ppo_shaped_oracle_s2,ppo,oracle,final,heuristic,train,500,126,0.252,0.21593322346148225,0.29184858732984587,28.376,-1.104
